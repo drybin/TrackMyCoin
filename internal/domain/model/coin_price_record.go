@@ -26,6 +26,9 @@ type CoinPriceRecord struct {
 	Price5Days   float64 // Цена через 5 дней
 	Price7Days   float64 // Цена через 7 дней
 	Price1Month  float64 // Цена через 1 месяц
+
+	// Оригинальная строка из Google Sheets для сохранения исходных значений
+	originalRow []interface{}
 }
 
 // ParseFromRow парсит строку из Google Sheets в CoinPriceRecord
@@ -45,6 +48,8 @@ func ParseFromRow(row []interface{}) (*CoinPriceRecord, error) {
 		Source:    getStringValue(row, 2),
 		Coin:      getStringValue(row, 3),
 		Direction: getStringValue(row, 4),
+		// Сохраняем оригинальную строку для возможности восстановления значений
+		originalRow: row,
 	}
 
 	// Парсим цены (могут быть пустыми)
@@ -179,6 +184,7 @@ func (r *CoinPriceRecord) String() string {
 }
 
 // ToRow конвертирует запись обратно в формат строки для Google Sheets
+// Использует оригинальные значения для полей, которые не были обновлены (остались 0)
 func (r *CoinPriceRecord) ToRow() []interface{} {
 	return []interface{}{
 		r.Date,
@@ -186,27 +192,34 @@ func (r *CoinPriceRecord) ToRow() []interface{} {
 		r.Source,
 		r.Coin,
 		r.Direction,
-		floatToInterface(r.SourcePrice),
-		floatToInterface(r.BybitPrice),
-		floatToInterface(r.Price10Min),
-		floatToInterface(r.Price30Min),
-		floatToInterface(r.Price1Hour),
-		floatToInterface(r.Price2Hours),
-		floatToInterface(r.Price6Hours),
-		floatToInterface(r.Price12Hours),
-		floatToInterface(r.Price24Hours),
-		floatToInterface(r.Price3Days),
-		floatToInterface(r.Price5Days),
-		floatToInterface(r.Price7Days),
-		floatToInterface(r.Price1Month),
+		r.getValueOrOriginal(5, r.SourcePrice),
+		r.getValueOrOriginal(6, r.BybitPrice),
+		r.getValueOrOriginal(7, r.Price10Min),
+		r.getValueOrOriginal(8, r.Price30Min),
+		r.getValueOrOriginal(9, r.Price1Hour),
+		r.getValueOrOriginal(10, r.Price2Hours),
+		r.getValueOrOriginal(11, r.Price6Hours),
+		r.getValueOrOriginal(12, r.Price12Hours),
+		r.getValueOrOriginal(13, r.Price24Hours),
+		r.getValueOrOriginal(14, r.Price3Days),
+		r.getValueOrOriginal(15, r.Price5Days),
+		r.getValueOrOriginal(16, r.Price7Days),
+		r.getValueOrOriginal(17, r.Price1Month),
 	}
 }
 
-// floatToInterface конвертирует float64 в interface{} для записи в Google Sheets
-// Если значение 0, возвращает пустую строку
-func floatToInterface(val float64) interface{} {
-	if val == 0 {
-		return ""
+// getValueOrOriginal возвращает новое значение если оно != 0, иначе оригинальное из таблицы
+func (r *CoinPriceRecord) getValueOrOriginal(index int, currentValue float64) interface{} {
+	// Если значение было обновлено (не равно 0), используем его
+	if currentValue != 0 {
+		return currentValue
 	}
-	return val
+
+	// Иначе возвращаем оригинальное значение из таблицы (если есть)
+	if r.originalRow != nil && index < len(r.originalRow) {
+		return r.originalRow[index]
+	}
+
+	// Если оригинальной строки нет, возвращаем пустую строку
+	return ""
 }

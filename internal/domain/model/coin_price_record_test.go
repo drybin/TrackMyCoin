@@ -265,7 +265,46 @@ func TestCoinPriceRecord_ToRow(t *testing.T) {
 		assert.Equal(t, 48000.00, row[17])
 	})
 
-	t.Run("Конвертация записи с пустыми ценами", func(t *testing.T) {
+	t.Run("Конвертация записи с пустыми ценами и оригинальной строкой", func(t *testing.T) {
+		// Оригинальная строка из таблицы с существующими данными
+		originalRow := []interface{}{
+			"29.12.2025",
+			"10:30:00",
+			"Binance",
+			"BTC",
+			"UP",
+			45000.50,
+			45010.00,
+			45100.00, // Оригинальная цена Price10Min
+			45200.00, // Оригинальная цена Price30Min
+			"",       // Пусто в таблице
+		}
+
+		record := &CoinPriceRecord{
+			Date:         "29.12.2025",
+			Time:         "10:30:00",
+			Source:       "Binance",
+			Coin:         "BTC",
+			Direction:    "UP",
+			SourcePrice:  45000.50,
+			BybitPrice:   45010.00,
+			Price10Min:   0, // Не удалось получить новую цену
+			Price30Min:   0, // Не удалось получить новую цену
+			originalRow:  originalRow,
+		}
+
+		row := record.ToRow()
+
+		assert.Equal(t, 18, len(row))
+		assert.Equal(t, "BTC", row[3])
+		assert.Equal(t, 45010.00, row[6])
+		// Должны вернуться оригинальные значения из таблицы
+		assert.Equal(t, 45100.00, row[7])  // Price10Min - оригинальное значение
+		assert.Equal(t, 45200.00, row[8])  // Price30Min - оригинальное значение
+		assert.Equal(t, "", row[9])        // Price1Hour - было пусто, осталось пусто
+	})
+
+	t.Run("Конвертация записи без оригинальной строки", func(t *testing.T) {
 		record := &CoinPriceRecord{
 			Date:        "29.12.2025",
 			Time:        "10:30:00",
@@ -274,7 +313,7 @@ func TestCoinPriceRecord_ToRow(t *testing.T) {
 			Direction:   "UP",
 			SourcePrice: 45000.50,
 			BybitPrice:  45010.00,
-			// Остальные цены = 0 (пустые)
+			// Остальные цены = 0, originalRow = nil
 		}
 
 		row := record.ToRow()
@@ -282,22 +321,10 @@ func TestCoinPriceRecord_ToRow(t *testing.T) {
 		assert.Equal(t, 18, len(row))
 		assert.Equal(t, "BTC", row[3])
 		assert.Equal(t, 45010.00, row[6])
-		// Пустые цены должны быть пустыми строками
+		// Без оригинальной строки пустые значения станут пустыми строками
 		assert.Equal(t, "", row[7])  // Price10Min
 		assert.Equal(t, "", row[8])  // Price30Min
 		assert.Equal(t, "", row[17]) // Price1Month
-	})
-}
-
-func TestFloatToInterface(t *testing.T) {
-	t.Run("Ненулевое значение", func(t *testing.T) {
-		result := floatToInterface(45000.50)
-		assert.Equal(t, 45000.50, result)
-	})
-
-	t.Run("Нулевое значение", func(t *testing.T) {
-		result := floatToInterface(0)
-		assert.Equal(t, "", result)
 	})
 }
 
