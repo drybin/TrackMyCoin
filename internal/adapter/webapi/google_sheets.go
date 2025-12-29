@@ -13,6 +13,7 @@ type IGoogleSheets interface {
 	ReadSpreadsheet(ctx context.Context, spreadsheetID string, readRange string) (*sheets.ValueRange, error)
 	GetSpreadsheetInfo(ctx context.Context, spreadsheetID string) (*sheets.Spreadsheet, error)
 	UpdateSpreadsheet(ctx context.Context, spreadsheetID string, writeRange string, values [][]interface{}) error
+	ClearSpreadsheet(ctx context.Context, spreadsheetID string, clearRange string) error
 }
 
 type GoogleSheets struct {
@@ -92,6 +93,19 @@ func (g *GoogleSheets) UpdateSpreadsheet(ctx context.Context, spreadsheetID stri
 
 	if err != nil {
 		return fmt.Errorf("unable to update data in sheet: %w", err)
+	}
+
+	return nil
+}
+
+// ClearSpreadsheet очищает данные в указанном диапазоне
+func (g *GoogleSheets) ClearSpreadsheet(ctx context.Context, spreadsheetID string, clearRange string) error {
+	_, err := g.service.Spreadsheets.Values.Clear(spreadsheetID, clearRange, &sheets.ClearValuesRequest{}).
+		Context(ctx).
+		Do()
+
+	if err != nil {
+		return fmt.Errorf("unable to clear data in sheet: %w", err)
 	}
 
 	return nil

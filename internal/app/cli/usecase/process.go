@@ -270,14 +270,26 @@ func (u *Process) updateGoogleSheets(ctx context.Context, spreadsheet *sheets.Sp
 	}
 
 	// Формируем диапазон для записи: начинаем со строки 2 (после заголовков)
-	lastRow := len(values) + 1 // +1 потому что начинаем со строки 2
-	writeRange := fmt.Sprintf("%s!A2:R%d", sheetName, lastRow)
+	// Строка 2 это первая строка данных, если у нас 10 записей, то последняя строка = 2 + 10 - 1 = 11
+	firstDataRow := 2
+	lastRow := firstDataRow + len(values) - 1
+	writeRange := fmt.Sprintf("%s!A%d:R%d", sheetName, firstDataRow, lastRow)
 
 	log.Printf("Sheet name: %s\n", sheetName)
-	log.Printf("Writing %d records to range: %s\n", len(records), writeRange)
+	log.Printf("Writing %d records to range: %s (rows %d-%d)\n", len(records), writeRange, firstDataRow, lastRow)
+
+	// Сначала очистим весь диапазон данных (все строки после заголовка), чтобы удалить старые данные
+	// Это важно, если в таблице было больше строк, чем мы пишем сейчас
+	clearRange := fmt.Sprintf("%s!A%d:R", sheetName, firstDataRow)
+	log.Printf("Clearing old data in range: %s\n", clearRange)
+	err := u.googleSheets.ClearSpreadsheet(ctx, u.config.GoogleSheetID, clearRange)
+	if err != nil {
+		log.Printf("⚠️  Warning: failed to clear old data: %v\n", err)
+		// Продолжаем даже если очистка не удалась
+	}
 
 	// Записываем данные
-	err := u.googleSheets.UpdateSpreadsheet(ctx, u.config.GoogleSheetID, writeRange, values)
+	err = u.googleSheets.UpdateSpreadsheet(ctx, u.config.GoogleSheetID, writeRange, values)
 	if err != nil {
 		return fmt.Errorf("failed to write data: %w", err)
 	}
